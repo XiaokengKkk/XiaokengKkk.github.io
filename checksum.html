@@ -12,8 +12,9 @@
             margin: 0;
             padding: 20px;
             display: flex;
-            flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         h1 {
@@ -23,14 +24,26 @@
             font-weight: bold;
         }
 
-        .container {
+        .container,
+        .bin-container {
             background-color: #fff;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             padding: 20px;
-            max-width: 800px;
-            width: 100%;
             box-sizing: border-box;
+            margin: 10px;
+        }
+
+        .container {
+            max-width: 400px;
+            width: 100%;
+        }
+
+        .bin-container {
+            max-width: 700px;
+            width: 100%;
+            overflow-y: auto;
+            height: 80vh;
         }
 
         label {
@@ -47,6 +60,29 @@
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
+        }
+
+        .flex-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .flex-row input {
+            flex: 1;
+            margin-right: 10px;
+            padding: 5px;
+        }
+
+        .flex-row small-input {
+            width: auto;
+            padding: 5px;
+            background-color: #e0e0e0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 60px;
+            text-align: center;
         }
 
         button {
@@ -89,7 +125,7 @@
             font-size: 16px;
             line-height: 1.5;
             background: #f8f8f8;
-            padding: 10px;
+            padding: 20px;
             border: 1px solid #ddd;
             border-radius: 4px;
             overflow-x: auto;
@@ -106,16 +142,44 @@
             font-size: 18px;
             font-weight: bold;
         }
+
+        .page-frame {
+            border: 2px solid #ddd;
+            margin-bottom: 20px;
+            padding: 20px 10px 10px 10px;
+            border-radius: 4px;
+            position: relative;
+        }
+
+        .page-number {
+            position: absolute;
+            left: -3px;
+            top: -3px;
+            font-size: 14px;
+            color: #888;
+            background: #fff;
+            padding: 0 5px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>校验和计算器</h1>
         <input type="file" id="fileInput" accept=".bin" onchange="displayFileContent()">
-        <label for="startByte">起始位:</label>
-        <input type="number" id="startByte" min="0" oninput="updateByteCount()">
-        <label for="endByte">终止位:</label>
-        <input type="number" id="endByte" min="0" oninput="updateByteCount()">
+        <label for="pageInput">页面选择：</label>
+        <input type="number" id="pageInput" min="0" value="0" oninput="updatePageSelection()">
+        <div class="flex-row">
+            <label for="startByte">起始位:</label>
+            <input type="number" id="startByte" min="0" oninput="updateFileByteDisplays()">
+            <span>文件起始位:</span>
+            <input type="text" id="startFileByte" class="small-input" readonly>
+        </div>
+        <div class="flex-row">
+            <label for="endByte">终止位:</label>
+            <input type="number" id="endByte" min="0" oninput="updateFileByteDisplays()">
+            <span>文件终止位:</span>
+            <input type="text" id="endFileByte" class="small-input" readonly>
+        </div>
         <div id="byteCount" class="byte-count">已选择字节数: 0</div>
         <label for="bitSelect">选择计算位数:</label>
         <select id="bitSelect">
@@ -128,11 +192,15 @@
             <input type="text" id="checksumResult" readonly placeholder="校验和">
             <button class="copy-button" onclick="copyChecksum()">复制</button>
         </div>
+    </div>
+
+    <div class="bin-container">
         <div class="bin-content" id="binContent"></div>
     </div>
 
     <script>
         let fileData = null;
+        const itemsPerPage = 128;
 
         function displayFileContent() {
             const fileInput = document.getElementById('fileInput').files[0];
@@ -147,82 +215,36 @@
             reader.onload = function(e) {
                 const arrayBuffer = e.target.result;
                 fileData = new Uint8Array(arrayBuffer);
-                let binContent = '';
-                let lineNumber = 0;
-
-                for (let i = 0; i < fileData.length; i += 16) {
-                    binContent += `${lineNumber.toString(16).padStart(8, '0').toUpperCase()}: `;
-                    for (let j = 0; j < 16; j++) {
-                        const byteIndex = i + j;
-                        if (byteIndex < fileData.length) {
-                            const byteHex = fileData[byteIndex].toString(16).padStart(2, '0').toUpperCase();
-                            binContent += `${byteHex} `;
-                        } else {
-                            binContent += '   ';
-                        }
-                    }
-                    binContent += '\n';
-                    lineNumber++;
+                binContentDiv.innerHTML = '';  // Clear previous content
+                const totalPages = Math.ceil(fileData.length / itemsPerPage);
+                for (let page = 0; page < totalPages; page++) {
+                    displayPage(page);
                 }
-
-                binContentDiv.innerHTML = binContent.trim();
+                updatePageSelection();
             };
 
             reader.readAsArrayBuffer(fileInput);
         }
 
-        function updateByteCount() {
-            const startByte = parseInt(document.getElementById('startByte').value);
-            const endByte = parseInt(document.getElementById('endByte').value);
-            const byteCountDiv = document.getElementById('byteCount');
-
-            if (isNaN(startByte) || isNaN(endByte) || startByte < 0 || endByte < 0 || startByte > endByte) {
-                byteCountDiv.innerText = `已选择字节数: 0`;
-                return;
-            }
-
-            const selectedBytesCount = endByte - startByte + 1;
-            byteCountDiv.innerText = `已选择字节数: ${selectedBytesCount}`;
-        }
-
-        function calculateChecksum() {
-            const startByte = parseInt(document.getElementById('startByte').value);
-            const endByte = parseInt(document.getElementById('endByte').value);
-            const bitSelect = document.getElementById('bitSelect').value;
-            const checksumResult = document.getElementById('checksumResult');
+        function displayPage(page) {
             const binContentDiv = document.getElementById('binContent');
-
-            if (!fileData) {
-                alert('请先选择一个bin文件');
-                return;
-            }
-
-            if (isNaN(startByte) || isNaN(endByte) || startByte < 0 || endByte < 0 || startByte > endByte) {
-                alert('请输入有效的起始位和终止位');
-                return;
-            }
-
-            if (endByte >= fileData.length) {
-                alert('终止位超出文件长度');
-                return;
-            }
-
-            let checksum = 0;
+            const pageFrame = document.createElement('div');
+            pageFrame.classList.add('page-frame');
+            const pageNumber = document.createElement('div');
+            pageNumber.classList.add('page-number');
+            pageNumber.textContent = `页面 ${page}`;
             let binContent = '';
-            let lineNumber = 0;
+            const start = page * itemsPerPage;
+            const end = Math.min(start + itemsPerPage, fileData.length);
+            let lineNumber = start / 16;
 
-            for (let i = 0; i < fileData.length; i += 16) {
+            for (let i = start; i < end; i += 16) {
                 binContent += `${lineNumber.toString(16).padStart(8, '0').toUpperCase()}: `;
                 for (let j = 0; j < 16; j++) {
                     const byteIndex = i + j;
-                    if (byteIndex < fileData.length) {
+                    if (byteIndex < end) {
                         const byteHex = fileData[byteIndex].toString(16).padStart(2, '0').toUpperCase();
-                        if (byteIndex >= startByte && byteIndex <= endByte) {
-                            checksum += fileData[byteIndex];
-                            binContent += `<span class="highlight">${byteHex}</span> `;
-                        } else {
-                            binContent += `${byteHex} `;
-                        }
+                        binContent += `${byteHex} `;
                     } else {
                         binContent += '   ';
                     }
@@ -231,7 +253,112 @@
                 lineNumber++;
             }
 
-            // 根据选择的位数进行位掩码操作
+            pageFrame.innerHTML = binContent.trim();
+            pageFrame.appendChild(pageNumber);
+            binContentDiv.appendChild(pageFrame);
+        }
+
+        function updatePageSelection() {
+            const page = parseInt(document.getElementById('pageInput').value) || 0;
+            const startByte = document.getElementById('startByte');
+            const endByte = document.getElementById('endByte');
+            
+            if (page === 0) {
+                startByte.removeAttribute('max');
+                endByte.removeAttribute('max');
+            } else {
+                startByte.max = itemsPerPage - 1;
+                endByte.max = itemsPerPage - 1;
+            }
+
+            updateFileByteDisplays();
+            highlightBytes();
+        }
+
+        function updateFileByteDisplays() {
+            const pageInput = parseInt(document.getElementById('pageInput').value) || 0;
+            const startByte = parseInt(document.getElementById('startByte').value) || 0;
+            const endByte = parseInt(document.getElementById('endByte').value) || 0;
+            const startFileByte = (pageInput * itemsPerPage) + startByte;
+            const endFileByte = (pageInput * itemsPerPage) + endByte;
+
+            document.getElementById('startFileByte').value = startFileByte;
+            document.getElementById('endFileByte').value = endFileByte;
+
+            highlightBytes();
+        }
+
+        function highlightBytes() {
+            const startByte = parseInt(document.getElementById('startByte').value) || 0;
+            const endByte = parseInt(document.getElementById('endByte').value) || 0;
+            const pageInput = parseInt(document.getElementById('pageInput').value) || 0;
+            const startFileByte = (pageInput * itemsPerPage) + startByte;
+            const endFileByte = (pageInput * itemsPerPage) + endByte;
+            const binContentDiv = document.getElementById('binContent');
+
+            binContentDiv.innerHTML = '';
+            const totalPages = Math.ceil(fileData.length / itemsPerPage);
+            for (let page = 0; page < totalPages; page++) {
+                const pageFrame = document.createElement('div');
+                pageFrame.classList.add('page-frame');
+                const pageNumber = document.createElement('div');
+                pageNumber.classList.add('page-number');
+                pageNumber.textContent = `页面 ${page}`;
+                let binContent = '';
+                const start = page * itemsPerPage;
+                const end = Math.min(start + itemsPerPage, fileData.length);
+                let lineNumber = start / 16;
+
+                for (let i = start; i < end; i += 16) {
+                    binContent += `${lineNumber.toString(16).padStart(8, '0').toUpperCase()}: `;
+                    for (let j = 0; j < 16; j++) {
+                        const byteIndex = i + j;
+                        if (byteIndex < end) {
+                            const byteHex = fileData[byteIndex].toString(16).padStart(2, '0').toUpperCase();
+                            if (byteIndex >= startFileByte && byteIndex <= endFileByte) {
+                                binContent += `<span class="highlight">${byteHex} </span>`;
+                            } else {
+                                binContent += `${byteHex} `;
+                            }
+                        } else {
+                            binContent += '   ';
+                        }
+                    }
+                    binContent += '\n';
+                    lineNumber++;
+                }
+
+                pageFrame.innerHTML = binContent.trim();
+                pageFrame.appendChild(pageNumber);
+                binContentDiv.appendChild(pageFrame);
+            }
+
+            const selectedBytesCount = endFileByte - startFileByte + 1;
+            document.getElementById('byteCount').innerText = `已选择字节数: ${selectedBytesCount}`;
+        }
+
+        function calculateChecksum() {
+            const startFileByte = parseInt(document.getElementById('startFileByte').value);
+            const endFileByte = parseInt(document.getElementById('endFileByte').value);
+            const bitSelect = document.getElementById('bitSelect').value;
+            const checksumResult = document.getElementById('checksumResult');
+
+            if (!fileData) {
+                alert('请先选择一个bin文件');
+                return;
+            }
+
+            if (isNaN(startFileByte) || isNaN(endFileByte) || startFileByte < 0 || endFileByte < 0 || startFileByte > endFileByte || endFileByte >= fileData.length) {
+                alert('请输入有效的起始位和终止位');
+                return;
+            }
+
+            let checksum = 0;
+
+            for (let i = startFileByte; i <= endFileByte; i++) {
+                checksum += fileData[i];
+            }
+
             switch (parseInt(bitSelect)) {
                 case 8:
                     checksum &= 0xFF;
@@ -246,18 +373,13 @@
 
             const checksumHex = `0x${checksum.toString(16).toUpperCase()}`;
             checksumResult.value = checksumHex;
-            binContentDiv.innerHTML = binContent.trim();
-
-            const selectedBytesCount = endByte - startByte + 1;
-            document.getElementById('byteCount').innerText = `已选择字节数: ${selectedBytesCount}`;
         }
 
         function copyChecksum() {
             const checksumResult = document.getElementById('checksumResult');
-            const lastTwoChars = checksumResult.value.slice(-2);
             const tempInput = document.createElement('input');
             document.body.appendChild(tempInput);
-            tempInput.value = lastTwoChars;
+            tempInput.value = checksumResult.value;
             tempInput.select();
             document.execCommand("copy");
             document.body.removeChild(tempInput);
@@ -268,6 +390,12 @@
                 copyButton.textContent = '复制';
             }, 2000);
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('pageInput').value = 0;
+            document.getElementById('startByte').value = 0;
+            document.getElementById('endByte').value = 0;
+        });
     </script>
 </body>
 </html>

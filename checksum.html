@@ -183,6 +183,7 @@
         <div id="byteCount" class="byte-count">已选择字节数: 0</div>
         <label for="bitSelect">选择计算位数:</label>
         <select id="bitSelect">
+            <option value="last2" selected>去除前缀</option>
             <option value="8">8位</option>
             <option value="16">16位</option>
             <option value="32">32位</option>
@@ -359,19 +360,26 @@
                 checksum += fileData[i];
             }
 
-            switch (parseInt(bitSelect)) {
-                case 8:
+            let checksumHex;
+
+            switch (bitSelect) {
+                case '8':
                     checksum &= 0xFF;
+                    checksumHex = `0x${checksum.toString(16).toUpperCase().padStart(2, '0')}`;
                     break;
-                case 16:
+                case '16':
                     checksum &= 0xFFFF;
+                    checksumHex = `0x${checksum.toString(16).toUpperCase().padStart(4, '0')}`;
                     break;
-                case 32:
+                case '32':
                     checksum &= 0xFFFFFFFF;
+                    checksumHex = `0x${checksum.toString(16).toUpperCase().padStart(8, '0')}`;
+                    break;
+                case 'last2':
+                    checksumHex = checksum.toString(16).toUpperCase().slice(-2).padStart(2, '0');
                     break;
             }
 
-            const checksumHex = `0x${checksum.toString(16).toUpperCase()}`;
             checksumResult.value = checksumHex;
         }
 
@@ -395,6 +403,7 @@
             document.getElementById('pageInput').value = 0;
             document.getElementById('startByte').value = 0;
             document.getElementById('endByte').value = 0;
+            document.getElementById('bitSelect').value = 'last2';
         });
     </script>
 </body>

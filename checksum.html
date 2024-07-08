@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>校验和计算器</title>
-    <link rel="icon" href="https://s1.imagehub.cc/images/2024/07/07/05e477630029b0204b2f61d846dc84f0.jpeg" type="image/jpeg">
     <style>
         body {
             font-family: 'SimSun', monospace;
@@ -23,6 +22,7 @@
             margin-bottom: 20px;
             text-align: center;
             font-weight: bold;
+            width: 100%;
         }
 
         .container,
@@ -41,10 +41,29 @@
         }
 
         .bin-container {
-            max-width: 700px;
+            max-width: 1000px;
             width: 100%;
             overflow-y: auto;
             height: 80vh;
+            display: flex;
+        }
+
+        .bin-content {
+            font-family: 'Courier New', monospace;
+            white-space: pre;
+            font-size: 16px;
+            line-height: 1.5;
+            background: #f8f8f8;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .highlight {
+            background-color: yellow;
         }
 
         label {
@@ -75,7 +94,7 @@
             padding: 5px;
         }
 
-        .flex-row small-input {
+        .small-input {
             width: auto;
             padding: 5px;
             background-color: #e0e0e0;
@@ -120,23 +139,6 @@
             width: auto;
         }
 
-        .bin-content {
-            font-family: 'Courier New', monospace;
-            white-space: pre;
-            font-size: 16px;
-            line-height: 1.5;
-            background: #f8f8f8;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            overflow-x: auto;
-            margin-top: 20px;
-        }
-
-        .highlight {
-            background-color: yellow;
-        }
-
         .byte-count {
             text-align: center;
             margin-top: -10px;
@@ -145,11 +147,10 @@
         }
 
         .page-frame {
-            border: 2px solid #ddd;
-            margin-bottom: 20px;
-            padding: 20px 10px 10px 10px;
-            border-radius: 4px;
             position: relative;
+            margin-bottom: 20px;
+            padding: 20px 10px 10px 0px;
+            border-radius: 4px;
         }
 
         .page-number {
@@ -164,8 +165,8 @@
     </style>
 </head>
 <body>
+    <h1>校验和计算器</h1>
     <div class="container">
-        <h1>校验和计算器</h1>
         <input type="file" id="fileInput" accept=".bin" onchange="displayFileContent()">
         <label for="pageInput">页面选择：</label>
         <input type="number" id="pageInput" min="0" value="0" oninput="updatePageSelection()">
@@ -217,7 +218,7 @@
             reader.onload = function(e) {
                 const arrayBuffer = e.target.result;
                 fileData = new Uint8Array(arrayBuffer);
-                binContentDiv.innerHTML = '';  // Clear previous content
+                binContentDiv.innerHTML = '';  // 清除之前的内容
                 const totalPages = Math.ceil(fileData.length / itemsPerPage);
                 for (let page = 0; page < totalPages; page++) {
                     displayPage(page);
@@ -242,16 +243,21 @@
 
             for (let i = start; i < end; i += 16) {
                 binContent += `${lineNumber.toString(16).padStart(8, '0').toUpperCase()}: `;
+                let asciiContent = '';
+
                 for (let j = 0; j < 16; j++) {
                     const byteIndex = i + j;
                     if (byteIndex < end) {
                         const byteHex = fileData[byteIndex].toString(16).padStart(2, '0').toUpperCase();
                         binContent += `${byteHex} `;
+                        const char = String.fromCharCode(fileData[byteIndex]);
+                        asciiContent += char.match(/[ -~]/) ? char : '.';
                     } else {
                         binContent += '   ';
+                        asciiContent += ' ';
                     }
                 }
-                binContent += '\n';
+                binContent += ` ${asciiContent}\n`;
                 lineNumber++;
             }
 
@@ -307,26 +313,32 @@
                 pageNumber.classList.add('page-number');
                 pageNumber.textContent = `页面 ${page}`;
                 let binContent = '';
+                let asciiContent = '';
                 const start = page * itemsPerPage;
                 const end = Math.min(start + itemsPerPage, fileData.length);
                 let lineNumber = start / 16;
 
                 for (let i = start; i < end; i += 16) {
                     binContent += `${lineNumber.toString(16).padStart(8, '0').toUpperCase()}: `;
+                    asciiContent = '';
+
                     for (let j = 0; j < 16; j++) {
                         const byteIndex = i + j;
                         if (byteIndex < end) {
                             const byteHex = fileData[byteIndex].toString(16).padStart(2, '0').toUpperCase();
                             if (byteIndex >= startFileByte && byteIndex <= endFileByte) {
                                 binContent += `<span class="highlight">${byteHex} </span>`;
+                                asciiContent += `<span class="highlight">${String.fromCharCode(fileData[byteIndex]).match(/[ -~]/) ? String.fromCharCode(fileData[byteIndex]) : '.'}</span>`;
                             } else {
                                 binContent += `${byteHex} `;
+                                asciiContent += String.fromCharCode(fileData[byteIndex]).match(/[ -~]/) ? String.fromCharCode(fileData[byteIndex]) : '.';
                             }
                         } else {
                             binContent += '   ';
+                            asciiContent += ' ';
                         }
                     }
-                    binContent += '\n';
+                    binContent += ` ${asciiContent}\n`;
                     lineNumber++;
                 }
 

@@ -14,15 +14,15 @@
             height: 100vh;
             margin: 0;
             overflow: hidden;
-            background: #f0f0f0;
+            background-color: #282c34;
+            color: white;
+            position: relative;
         }
         h1 {
-            color: #333;
             font-size: 3em;
             margin-bottom: 20px;
         }
         p {
-            color: #555;
             font-size: 1.5em;
             text-align: center;
             max-width: 600px;
@@ -40,28 +40,28 @@
         .button:hover {
             background-color: #0056b3;
         }
-        .background-animation {
+        .dynamic-background {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: url('https://source.unsplash.com/random/1920x1080') no-repeat center center fixed;
-            background-size: cover;
-            filter: blur(8px);
+            background: linear-gradient(270deg, #4e54c8, #8f94fb);
+            background-size: 400% 400%;
+            animation: gradient 15s ease infinite;
             z-index: -1;
-            animation: fade 30s infinite alternate;
         }
-        @keyframes fade {
-            0% { opacity: 0.8; }
-            100% { opacity: 0.3; }
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
     </style>
 </head>
 <body>
-    <div class="background-animation"></div>
+    <div class="dynamic-background"></div>
     <h1>欢迎来到测试页面</h1>
-    <p>这是一个用于展示更复杂HTML页面的示例。背景动画和图片使页面更生动。</p>
+    <p>这是一个展示动态背景的示例。背景动画使页面更生动有趣。</p>
     <button class="button" onclick="alert('按钮被点击!')">点击我</button>
 </body>
 </html>

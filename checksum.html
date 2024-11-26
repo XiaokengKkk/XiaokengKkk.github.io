@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>校验和计算器</title>
-    <link rel="icon" href="https://s1.imagehub.cc/images/2024/07/07/05e477630029b0204b2f61d846dc84f0.jpeg" type="image/jpeg">
+	<link rel="icon" href="https://s1.imagehub.cc/images/2024/07/07/05e477630029b0204b2f61d846dc84f0.jpeg" type="image/jpeg">
     <style>
         body {
             font-family: 'SimSun', monospace;
@@ -65,11 +65,6 @@
 
         .highlight {
             background-color: yellow;
-        }
-
-        .highlight-red {
-            background-color: red;
-            color: white;
         }
 
         label {
@@ -168,21 +163,6 @@
             background: #fff;
             padding: 0 5px;
         }
-
-        .protocol-buttons {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 15px;
-        }
-
-        .protocol-buttons button {
-            width: 32%;
-        }
-
-        .selected {
-            background-color: #45a049; /* 选择时高亮按钮 */
-            color: white;
-        }
     </style>
 </head>
 <body>
@@ -193,13 +173,13 @@
         <input type="number" id="pageInput" min="0" value="0" oninput="updatePageSelection()">
         <div class="flex-row">
             <label for="startByte">起始位:</label>
-            <input type="number" id="startByte" min="0" oninput="updatePageHighlight()">
+            <input type="number" id="startByte" min="0" oninput="updateFileByteDisplays()">
             <span>文件起始位:</span>
             <input type="text" id="startFileByte" class="small-input" readonly>
         </div>
         <div class="flex-row">
             <label for="endByte">终止位:</label>
-            <input type="number" id="endByte" min="0" oninput="updatePageHighlight()">
+            <input type="number" id="endByte" min="0" oninput="updateFileByteDisplays()">
             <span>文件终止位:</span>
             <input type="text" id="endFileByte" class="small-input" readonly>
         </div>
@@ -216,24 +196,6 @@
             <input type="text" id="checksumResult" readonly placeholder="校验和">
             <button class="copy-button" onclick="copyChecksum()">复制</button>
         </div>
-
-        <h2>协议选择</h2>
-        <div class="protocol-buttons">
-            <button id="btnSFF8472" onclick="calculateProtocolChecksum('SFF-8472')">SFF-8472</button>
-            <button id="btnSFF8636" onclick="calculateProtocolChecksum('SFF-8636')">SFF-8636</button>
-            <button id="btnCMIS" onclick="calculateProtocolChecksum('CMIS')">CMIS</button>
-        </div>
-        <div class="result-container">
-            <input type="text" id="checksum1" readonly placeholder="校验和1">
-            <button class="copy-button" onclick="copyChecksum('checksum1')">复制</button>
-        </div>
-        <div class="result-container">
-            <input type="text" id="checksum2" readonly placeholder="校验和2">
-            <button class="copy-button" onclick="copyChecksum('checksum2')">复制</button>
-        </div>
-
-        <!-- 新增按钮 -->
-        <button onclick="openHtmlPage()">打开华为校验和计算器</button>
     </div>
 
     <div class="bin-container">
@@ -243,16 +205,6 @@
     <script>
         let fileData = null;
         const itemsPerPage = 128;
-        const protocolButtons = {
-            "SFF-8472": "btnSFF8472",
-            "SFF-8636": "btnSFF8636",
-            "CMIS": "btnCMIS"
-        };
-
-        // 打开华为校验和计算.html页面
-        function openHtmlPage() {
-            window.open('hwchecksum.html', '_self');
-        }
 
         function displayFileContent() {
             const fileInput = document.getElementById('fileInput').files[0];
@@ -316,22 +268,23 @@
         }
 
         function updatePageSelection() {
-            const pageInput = parseInt(document.getElementById('pageInput').value) || 0;
-            const totalPage = Math.ceil(fileData.length / itemsPerPage) - 1;
-            if (pageInput < 0 || pageInput > totalPage) {
-                alert('页面超出范围');
-                return;
-            }
+            const page = parseInt(document.getElementById('pageInput').value) || 0;
             const startByte = document.getElementById('startByte');
             const endByte = document.getElementById('endByte');
             
-            startByte.max = itemsPerPage - 1;
-            endByte.max = itemsPerPage - 1;
+            if (page === 0) {
+                startByte.removeAttribute('max');
+                endByte.removeAttribute('max');
+            } else {
+                startByte.max = itemsPerPage - 1;
+                endByte.max = itemsPerPage - 1;
+            }
 
-            updatePageHighlight();
+            updateFileByteDisplays();
+            highlightBytes();
         }
 
-        function updatePageHighlight() {
+        function updateFileByteDisplays() {
             const pageInput = parseInt(document.getElementById('pageInput').value) || 0;
             const startByte = parseInt(document.getElementById('startByte').value) || 0;
             const endByte = parseInt(document.getElementById('endByte').value) || 0;
@@ -341,15 +294,19 @@
             document.getElementById('startFileByte').value = startFileByte;
             document.getElementById('endFileByte').value = endFileByte;
 
-            // Highlight the selected byte range and the subsequent byte
-            highlightBytes([[startFileByte, endFileByte]], [endFileByte + 1]);
+            highlightBytes();
         }
 
-        function highlightBytes(highlights = [], redHighlights = []) {
+        function highlightBytes() {
+            const startByte = parseInt(document.getElementById('startByte').value) || 0;
+            const endByte = parseInt(document.getElementById('endByte').value) || 0;
+            const pageInput = parseInt(document.getElementById('pageInput').value) || 0;
+            const startFileByte = (pageInput * itemsPerPage) + startByte;
+            const endFileByte = (pageInput * itemsPerPage) + endByte;
             const binContentDiv = document.getElementById('binContent');
-            binContentDiv.innerHTML = '';  // 清除之前的内容
-            const totalPages = Math.ceil(fileData.length / itemsPerPage);
 
+            binContentDiv.innerHTML = '';
+            const totalPages = Math.ceil(fileData.length / itemsPerPage);
             for (let page = 0; page < totalPages; page++) {
                 const pageFrame = document.createElement('div');
                 pageFrame.classList.add('page-frame');
@@ -357,27 +314,22 @@
                 pageNumber.classList.add('page-number');
                 pageNumber.textContent = `页面 ${page}`;
                 let binContent = '';
+                let asciiContent = '';
                 const start = page * itemsPerPage;
                 const end = Math.min(start + itemsPerPage, fileData.length);
                 let lineNumber = start / 16;
 
                 for (let i = start; i < end; i += 16) {
                     binContent += `${lineNumber.toString(16).padStart(8, '0').toUpperCase()}: `;
-                    let asciiContent = '';
+                    asciiContent = '';
+
                     for (let j = 0; j < 16; j++) {
                         const byteIndex = i + j;
                         if (byteIndex < end) {
                             const byteHex = fileData[byteIndex].toString(16).padStart(2, '0').toUpperCase();
-                            const isHighlighted = highlights.some(([highlightStart, highlightEnd]) => 
-                                byteIndex >= highlightStart && byteIndex <= highlightEnd);
-                            const isRedHighlighted = redHighlights.includes(byteIndex);
-
-                            if (isHighlighted) {
+                            if (byteIndex >= startFileByte && byteIndex <= endFileByte) {
                                 binContent += `<span class="highlight">${byteHex} </span>`;
                                 asciiContent += `<span class="highlight">${String.fromCharCode(fileData[byteIndex]).match(/[ -~]/) ? String.fromCharCode(fileData[byteIndex]) : '.'}</span>`;
-                            } else if (isRedHighlighted) {
-                                binContent += `<span class="highlight-red">${byteHex} </span>`;
-                                asciiContent += `<span class="highlight-red">${String.fromCharCode(fileData[byteIndex]).match(/[ -~]/) ? String.fromCharCode(fileData[byteIndex]) : '.'}</span>`;
                             } else {
                                 binContent += `${byteHex} `;
                                 asciiContent += String.fromCharCode(fileData[byteIndex]).match(/[ -~]/) ? String.fromCharCode(fileData[byteIndex]) : '.';
@@ -390,10 +342,14 @@
                     binContent += ` ${asciiContent}\n`;
                     lineNumber++;
                 }
+
                 pageFrame.innerHTML = binContent.trim();
                 pageFrame.appendChild(pageNumber);
                 binContentDiv.appendChild(pageFrame);
             }
+
+            const selectedBytesCount = endFileByte - startFileByte + 1;
+            document.getElementById('byteCount').innerText = `已选择字节数: ${selectedBytesCount}`;
         }
 
         function calculateChecksum() {
@@ -412,9 +368,14 @@
                 return;
             }
 
-            let checksum = calculateRangeChecksum(startFileByte, endFileByte);
+            let checksum = 0;
+
+            for (let i = startFileByte; i <= endFileByte; i++) {
+                checksum += fileData[i];
+            }
 
             let checksumHex;
+
             switch (bitSelect) {
                 case '8':
                     checksum &= 0xFF;
@@ -436,67 +397,16 @@
             checksumResult.value = checksumHex;
         }
 
-        function calculateProtocolChecksum(protocol) {
-            let checksum1 = 0;
-            let checksum2 = 0;
-
-            // 重置按钮样式
-            Object.values(protocolButtons).forEach(id => document.getElementById(id).classList.remove('selected'));
-            // 设置选中按钮样式
-            document.getElementById(protocolButtons[protocol]).classList.add('selected');
-
-            if (!fileData) {
-                alert('请先选择一个bin文件');
-                return;
-            }
-
-            let highlights;
-            let redHighlights;
-            let start1, end1, start2, end2;
-
-            if (protocol === 'SFF-8472' || protocol === 'SFF-8636') {
-                start1 = 0; end1 = 62;
-                start2 = 64; end2 = 94;
-                highlights = [[start1, end1], [start2, end2]];
-                redHighlights = [63, 95];
-            } else if (protocol === 'CMIS') {
-                start1 = 128; end1 = 221;
-                start2 = 258; end2 = 382;
-                highlights = [[start1, end1], [start2, end2]];
-                redHighlights = [222, 383];
-            }
-
-            checksum1 = calculateRangeChecksum(start1, end1);
-            checksum2 = calculateRangeChecksum(start2, end2);
-
-            // 仅显示校验和结果的最后两位
-            document.getElementById('checksum1').value = checksum1.toString(16).toUpperCase().slice(-2).padStart(2, '0');
-            document.getElementById('checksum2').value = checksum2.toString(16).toUpperCase().slice(-2).padStart(2, '0');
-
-            // 高亮所选区域
-            highlightBytes(highlights, redHighlights);
-        }
-
-        function calculateRangeChecksum(start, end) {
-            let checksum = 0;
-            for (let i = start; i <= end; i++) {
-                if (i < fileData.length) {
-                    checksum += fileData[i];
-                }
-            }
-            return checksum;
-        }
-
-        function copyChecksum(elementId) {
-            const checksumElement = document.getElementById(elementId || 'checksumResult');
+        function copyChecksum() {
+            const checksumResult = document.getElementById('checksumResult');
             const tempInput = document.createElement('input');
             document.body.appendChild(tempInput);
-            tempInput.value = checksumElement.value;
+            tempInput.value = checksumResult.value;
             tempInput.select();
             document.execCommand("copy");
             document.body.removeChild(tempInput);
 
-            const copyButton = checksumElement.nextElementSibling;
+            const copyButton = document.querySelector('.copy-button');
             copyButton.textContent = '已复制';
             setTimeout(() => {
                 copyButton.textContent = '复制';

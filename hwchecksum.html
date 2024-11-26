@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>华为校验码计算器</title>
+    <style>
+        body {
+            font-family: "微软雅黑", Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #f0f8ff;
+            color: #333;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 90%;
+            max-width: 500px;
+        }
+        h2 {
+            color: #1e90ff;
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 24px;
+        }
+        .input-section {
+            margin-bottom: 20px;
+        }
+        .input-section label {
+            display: block;
+            color: #555;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        .input-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+        }
+        .byte-input {
+            width: 48px;
+            height: 36px;
+            text-align: center;
+            border: 1px solid #87cefa;
+            border-radius: 4px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .byte-input:focus {
+            border-color: #1e90ff;
+            box-shadow: 0 0 5px rgba(30, 144, 255, 0.3);
+        }
+        button {
+            background-color: #1e90ff;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            width: 100%;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #4682b4;
+        }
+        #result-container {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            background-color: #fafafa;
+            min-height: 50px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #result {
+            color: #483d8b;
+            font-weight: bold;
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>华为校验码计算器</h2>
+        <div class="input-section">
+            <label>输入8个BOM字节：</label>
+            <div class="input-group">
+                <input type="text" class="byte-input" maxlength="2" id="bom0" oninput="moveFocus(this, 'bom1')">
+                <input type="text" class="byte-input" maxlength="2" id="bom1" oninput="moveFocus(this, 'bom2')">
+                <input type="text" class="byte-input" maxlength="2" id="bom2" oninput="moveFocus(this, 'bom3')">
+                <input type="text" class="byte-input" maxlength="2" id="bom3" oninput="moveFocus(this, 'bom4')">
+                <input type="text" class="byte-input" maxlength="2" id="bom4" oninput="moveFocus(this, 'bom5')">
+                <input type="text" class="byte-input" maxlength="2" id="bom5" oninput="moveFocus(this, 'bom6')">
+                <input type="text" class="byte-input" maxlength="2" id="bom6" oninput="moveFocus(this, 'bom7')">
+                <input type="text" class="byte-input" maxlength="2" id="bom7" oninput="moveFocus(this, 'reserved0')">
+            </div>
+        </div>
+        <div class="input-section">
+            <label>输入6个保留字节：</label>
+            <div class="input-group">
+                <input type="text" class="byte-input" maxlength="2" id="reserved0" value="00" oninput="moveFocus(this, 'reserved1')">
+                <input type="text" class="byte-input" maxlength="2" id="reserved1" value="00" oninput="moveFocus(this, 'reserved2')">
+                <input type="text" class="byte-input" maxlength="2" id="reserved2" value="00" oninput="moveFocus(this, 'reserved3')">
+                <input type="text" class="byte-input" maxlength="2" id="reserved3" value="00" oninput="moveFocus(this, 'reserved4')">
+                <input type="text" class="byte-input" maxlength="2" id="reserved4" value="00" oninput="moveFocus(this, 'reserved5')">
+                <input type="text" class="byte-input" maxlength="2" id="reserved5" value="00">
+            </div>
+        </div>
+        <button onclick="calculateChecksum()">计算校验码</button>
+        <div id="result-container">
+            <div id="result">校验码将显示在这里。</div>
+        </div>
+    </div>
+
+    <script>
+        function moveFocus(currentInput, nextInputId) {
+            if (currentInput.value.length === 2) {
+                const nextInput = document.getElementById(nextInputId);
+                if (nextInput) {
+                    nextInput.focus();
+                }
+            }
+        }
+
+        function calculateChecksum() {
+            const bomBytes = [];
+            const reservedBytes = [];
+
+            for (let i = 0; i < 8; i++) {
+                const value = document.getElementById(`bom${i}`).value.trim();
+                if (!isValidHexByte(value)) {
+                    document.getElementById('result').innerText = "请输入有效的BOM字节（十六进制）。";
+                    return;
+                }
+                bomBytes.push(parseInt(value, 16));
+            }
+
+            for (let i = 0; i < 6; i++) {
+                const value = document.getElementById(`reserved${i}`).value.trim();
+                if (!isValidHexByte(value)) {
+                    document.getElementById('result').innerText = "请输入有效的保留字节（十六进制）。";
+                    return;
+                }
+                reservedBytes.push(parseInt(value, 16));
+            }
+
+            const allBytes = [...bomBytes, ...reservedBytes];
+            let checksum = allBytes.reduce((acc, byte) => acc + byte, 0);
+
+            // 对和取反，并确保在16位范围内
+            checksum = ~checksum & 0xFFFF;
+
+            // 输出校验码（十六进制格式）
+            document.getElementById('result').innerText = `校验码: ${checksum.toString(16).toUpperCase().padStart(4, '0')}`;
+        }
+
+        function isValidHexByte(value) {
+            return /^[0-9A-Fa-f]{2}$/.test(value);
+        }
+    </script>
+</body>
+</html>
